@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace RulesCore.Controllers
 {
@@ -62,20 +63,18 @@ namespace RulesCore.Controllers
             {
                 return GetParsedValue(tdeger, gelenJson);
             }
-            else if (kural.Contains("!"))
+            else if (kural.Contains("!="))
             {
-                Console.WriteLine("!");
+                Console.WriteLine("!=");
                 var parts = kural.Split("!=");
                 var left = parts[0].Trim();
-                var right = parts[1].Trim('!');
-                right = parts[1].Trim('=');
+                var right = parts[1].Trim();
 
                 Console.WriteLine($"Left: {left}");
                 Console.WriteLine($"Right: {right}");
 
                 var leftValue = GetParsedValue(left, gelenJson).GetString();
-                var rightValue=right;
-                if (right.Contains("[")) {rightValue = GetParsedValue(right, gelenJson).GetString();}
+                var rightValue = GetParsedValue(right, gelenJson).GetString();
 
                 Console.WriteLine($"LeftValue: {leftValue}");
                 Console.WriteLine($"RightValue: {rightValue}");
@@ -92,16 +91,15 @@ namespace RulesCore.Controllers
             else if (kural.Contains("=="))
             {
                 Console.WriteLine("==");
-                var parts = kural.Split('=');
+                var parts = kural.Split("==");
                 var left = parts[0].Trim();
-                var right = parts[1].Trim('=');
+                var right = parts[1].Trim();
 
                 Console.WriteLine($"Left: {left}");
                 Console.WriteLine($"Right: {right}");
 
                 var leftValue = GetParsedValue(left, gelenJson).GetString();
-                var rightValue=right;
-                if (right.Contains("[")) {rightValue = GetParsedValue(right, gelenJson).GetString();}
+                var rightValue = GetParsedValue(right, gelenJson).GetString();
 
                 Console.WriteLine($"LeftValue: {leftValue}");
                 Console.WriteLine($"RightValue: {rightValue}");
@@ -117,17 +115,16 @@ namespace RulesCore.Controllers
             }
             else if (kural.Contains("<"))
             {
-                var parts = kural.Split('<');
+                Console.WriteLine("<");
+                var parts = kural.Split("<");
                 var left = parts[0].Trim();
-                var right = parts[1].Trim('<');
-                right = right.Trim('=');
+                var right = parts[1].Trim();
 
                 Console.WriteLine($"Left: {left}");
                 Console.WriteLine($"Right: {right}");
 
                 var leftValue = GetParsedValue(left, gelenJson).GetString();
-                var rightValue=right;
-                if (right.Contains("[")) {rightValue = GetParsedValue(right, gelenJson).GetString();}
+                var rightValue = GetParsedValue(right, gelenJson).GetString();
 
                 Console.WriteLine($"LeftValue: {leftValue}");
                 Console.WriteLine($"RightValue: {rightValue}");
@@ -143,7 +140,8 @@ namespace RulesCore.Controllers
             }
             else if (kural.Contains(">"))
             {
-                var parts = kural.Split('>');
+                Console.WriteLine(">");
+                var parts = kural.Split(">");
                 var left = parts[0].Trim();
                 var right = parts[1].Trim();
 
@@ -151,9 +149,8 @@ namespace RulesCore.Controllers
                 Console.WriteLine($"Right: {right}");
 
                 var leftValue = GetParsedValue(left, gelenJson).GetString();
-                var rightValue=right;
-                if (right.Contains("[")) {rightValue = GetParsedValue(right, gelenJson).GetString();}
-                
+                var rightValue = GetParsedValue(right, gelenJson).GetString();
+
                 Console.WriteLine($"LeftValue: {leftValue}");
                 Console.WriteLine($"RightValue: {rightValue}");
 
@@ -167,63 +164,104 @@ namespace RulesCore.Controllers
                 }
             }
 
-
             return JsonDocument.Parse("\"\"").RootElement;
         }
 
         public JsonElement GetParsedValue(string value, List<JsonElement> gelenJson)
         {
             Console.WriteLine($"Value: {value}");
-            Console.WriteLine($"Jsonin: { gelenJson.ToString()}");
-            
-            if (value.StartsWith("[DATE()]"))
+
+            var parsedValues = ParseString(value);
+
+            foreach (var i in parsedValues)
             {
-                var format = value.TrimStart("[DATE(".ToCharArray()).TrimEnd(")]".ToCharArray());
-                Console.WriteLine($"Date Format: {format}");
-                if (format=="") format="dd/MM/yyyy";
-                var date = DateTime.Now.ToString(format);
-                return JsonDocument.Parse($"\"{date}\"").RootElement;
+                Console.WriteLine($"Parsed Value: {i}");
             }
-            else if (value.StartsWith("[NOW()]"))
+
+            // Parse edilmiş değerleri birleştirerek işleyelim.
+            var resultValue = string.Join("", parsedValues.Select((v, index) =>
             {
-                var format = value.TrimStart("[NOW(".ToCharArray()).TrimEnd(")]".ToCharArray());
-                Console.WriteLine($"Time Format: {format}");
-                if (format=="") format="dd/MM/yyyy hh:mm:ss";
-                var now = DateTime.Now.ToString(format);
-                return JsonDocument.Parse($"\"{now}\"").RootElement;
-            }
-            
-            else if (value.StartsWith("\"") && value.EndsWith("\""))
-            {
-                return JsonDocument.Parse(value).RootElement;
-            }
-            else if (value.Contains("+"))
-            {
-                var degerler = value.Trim('[', ']').Split('+').Select(d => d.Trim()).ToList();
-                var birlesikDeger = string.Join("", degerler.Select(d => GetParsedValue(d, gelenJson).GetString()));
-                return JsonDocument.Parse($"\"{birlesikDeger}\"").RootElement;
-            }
-            else if (value.StartsWith("[") && value.EndsWith("]"))
-            {
-                var alan = value.Trim('[', ']');
-                var alanValueElement = gelenJson.FirstOrDefault(j =>
+                if (v.StartsWith("[DATE(") && v.EndsWith(")]"))
                 {
-                    JsonElement nameProp;
-                    return j.TryGetProperty("name", out nameProp) && nameProp.GetString() == alan;
-                });
-                
-                Console.WriteLine($"alanvalue: { alanValueElement.ToString()}");
-                var alanValue = "";
-                if (alanValueElement.ToString()!="")
-                { alanValue=alanValueElement.GetProperty("value").GetString();}
+                    var format = v.TrimStart("[DATE(".ToCharArray()).TrimEnd(")]".ToCharArray());
+                    if (string.IsNullOrEmpty(format))
+                    {
+                        format = "dd/MM/yyyy";
+                    }
 
-                return JsonDocument.Parse($"\"{alanValue}\"").RootElement;
+                    var date = DateTime.Now.ToString(format);
+                    return date;
+                }
+                else if (v.StartsWith("[NOW(") && v.EndsWith(")]"))
+                {
+                    var format = v.TrimStart("[NOW(".ToCharArray()).TrimEnd(")]".ToCharArray());
+                    if (string.IsNullOrEmpty(format))
+                    {
+                        format = "dd/MM/yyyy hh:mm:ss";
+                    }
 
+                    var now = DateTime.Now.ToString(format);
+                    return now;
+                }
+                else if (v.StartsWith("[") && v.EndsWith("]"))
+                {
+                    var alan = v.Trim('[', ']');
+                    var alanValueElement = gelenJson.FirstOrDefault(j =>
+                    {
+                        JsonElement nameProp;
+                        return j.TryGetProperty("name", out nameProp) && nameProp.GetString() == alan;
+                    });
+
+                    var alanValue = "";
+                    if (alanValueElement.ToString() != "")
+                    {
+                        alanValue = alanValueElement.GetProperty("value").GetString();
+                    }
+
+                    return alanValue;
+                }
+                else
+                {
+                    return v;
+                }
+            }));
+
+            return JsonDocument.Parse($"\"{resultValue}\"").RootElement;
+        }
+
+ 
+
+        public static List<string> ParseString(string input)
+        {
+            List<string> result = new List<string>();
+            int currentIndex = 0;
+
+            // Bu düzenli ifade ile [] içindekileri yakalayabiliriz.
+            var regex = new Regex(@"\[(.*?)\]");
+
+            foreach (Match match in regex.Matches(input))
+            {
+                // [] içindekilerin öncesi (text kısmı) ekleniyor.
+                if (currentIndex < match.Index)
+                {
+                    result.Add(input.Substring(currentIndex, match.Index - currentIndex));
+                }
+
+                // [] içindeki kısmı ekliyoruz.
+                result.Add(match.Value);
+
+                // Başlangıç indeksi güncelleniyor.
+                currentIndex = match.Index + match.Length;
             }
 
+            // Son kalan text kısmı da ekleniyor.
+            if (currentIndex < input.Length)
+            {
+                result.Add(input.Substring(currentIndex));
+            }
 
-
-            return JsonDocument.Parse("\"\"").RootElement;
+            return result;
         }
+
     }
 }

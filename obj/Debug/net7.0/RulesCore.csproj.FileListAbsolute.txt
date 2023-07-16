@@ -31,3 +31,4 @@ C:\Oktay\Programming\c#\RulesCore\obj\Debug\net7.0\refint\RulesCore.dll
 C:\Oktay\Programming\c#\RulesCore\obj\Debug\net7.0\RulesCore.pdb
 C:\Oktay\Programming\c#\RulesCore\obj\Debug\net7.0\RulesCore.genruntimeconfig.cache
 C:\Oktay\Programming\c#\RulesCore\obj\Debug\net7.0\ref\RulesCore.dll
+C:\Oktay\Programming\c#\RulesCore\bin\Debug\net7.0\Newtonsoft.Json.dll
